@@ -11,20 +11,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <script>
 // ══════════════════════════════════════════════
-// JSONBIN.IO — Base de datos en la nube gratis
+// JSONBIN.IO — Base de datos compartida TiVo
 // ══════════════════════════════════════════════
 const JSONBIN_KEY = "$2a$10$UwwjgpE7T0UY8gP7D.fYW.Ne7EiqLktq07bocLdfMcdlcskXfV/mS";
 const JSONBIN_API = "https://api.jsonbin.io/v3";
+const SHARED_BIN_NAME = "tivo_shared";
 
-// Cada usuario tiene su propio bin (se crea automáticamente)
-// Guardamos el binId en localStorage para no buscarlo siempre
-async function jbGetBinId(user) {
-  const key = "jb_bin_" + user;
-  return localStorage.getItem(key) || null;
-}
-async function jbSetBinId(user, binId) {
-  localStorage.setItem("jb_bin_" + user, binId);
-}
+// BIN ID compartido fijo — ambas usuarias usan el mismo
+let _sharedBinId = "69e97d4caaba8821972a1c08";
 
 async function jbFetch(url, options = {}) {
   const res = await fetch(url, {
@@ -40,37 +34,18 @@ async function jbFetch(url, options = {}) {
   return res.json();
 }
 
-// Carga el bin del usuario (o lo crea si no existe)
-async function jbLoadUserData(user) {
-  let binId = await jbGetBinId(user);
-  if (binId) {
-    try {
-      const data = await jbFetch(`${JSONBIN_API}/b/${binId}/latest`);
-      return data.record;
-    } catch(e) {
-      // bin no existe, crear nuevo
-      binId = null;
-    }
-  }
-  // Crear bin nuevo para este usuario
-  const empty = { quotes: [], nextId: 1, bizInfo: { name: "Mi Empresa", email: "", phone: "", address: "" } };
-  const created = await jbFetch(`${JSONBIN_API}/b`, {
-    method: "POST",
-    headers: { "X-Bin-Name": "tivo_" + user },
-    body: JSON.stringify(empty)
-  });
-  await jbSetBinId(user, created.metadata.id);
-  return empty;
+async function getSharedBinId() {
+  return _sharedBinId; // ID fijo compartido
 }
 
-// Guarda todos los datos del usuario
+async function jbLoadUserData(user) {
+  const binId = await getSharedBinId();
+  const data = await jbFetch(`${JSONBIN_API}/b/${binId}/latest`);
+  return data.record;
+}
+
 async function jbSaveUserData(user, data) {
-  let binId = await jbGetBinId(user);
-  if (!binId) {
-    // no debería pasar, pero por si acaso
-    await jbLoadUserData(user);
-    binId = await jbGetBinId(user);
-  }
+  const binId = await getSharedBinId();
   await jbFetch(`${JSONBIN_API}/b/${binId}`, {
     method: "PUT",
     body: JSON.stringify(data)
