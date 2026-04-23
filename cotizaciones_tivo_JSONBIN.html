@@ -1266,10 +1266,10 @@ function selectAll() {
 
 async function deleteSelected() {
   const count = _selectedIds.size;
-  if (count === 0) { showToast('No hay cotizaciones seleccionadas ⚠️','error'); return; }
-  if (!confirm(`¿Eliminar ${count} cotización${count!==1?'es':''}? Esta acción no se puede deshacer.`)) return;
+  if (count === 0) { showToast('No hay cotizaciones seleccionadas','error'); return; }
+  if (!confirm('Eliminar ' + count + ' cotizacion' + (count!==1?'es':'') + '? Esta accion no se puede deshacer.')) return;
   const ids = [..._selectedIds];
-  showToast(`Eliminando ${count}… 🗑️`);
+  showToast('Eliminando ' + count + '...');
   appData.quotes = appData.quotes.filter(q => !ids.includes(q.id));
   renderList();
   updateSidebar();
@@ -1279,7 +1279,7 @@ async function deleteSelected() {
   }
   _selectedIds.clear();
   toggleSelectMode();
-  showToast(`${count} cotización${count!==1?'es':''} eliminada${count!==1?'s':''} ✅`);
+  showToast(count + ' cotizacion' + (count!==1?'es':'') + ' eliminada' + (count!==1?'s':'') + ' OK');
 }
 
 // ═══════════════════════════════════════════
