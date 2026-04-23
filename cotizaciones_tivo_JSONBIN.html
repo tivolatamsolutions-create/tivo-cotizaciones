@@ -182,9 +182,11 @@ document.dispatchEvent(new Event("fb-ready"));
     }
     
     /* Stats */
-    .stats-grid{grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
-    .stats-grid .card{padding:16px 14px;}
-    .stats-grid .card div:first-child{font-size:20px;margin-bottom:4px;}
+    .stats-grid{grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;}
+    .stats-grid .card{padding:12px 10px;}
+    .stats-grid .card div:first-child{font-size:18px;margin-bottom:3px;}
+    .stats-grid .card div:nth-child(2){font-size:9px !important;}
+    .stats-grid .card div:nth-child(3){font-size:20px !important;}
     
     /* Quote list items */
     .qitem{
@@ -200,6 +202,15 @@ document.dispatchEvent(new Event("fb-ready"));
     .lbl{font-size:12px;}
     .inp{font-size:16px !important;padding:13px 14px;}/* 16px evita zoom en iPhone */
     select.inp{font-size:16px !important;}
+    /* Grids de 2 columnas → 1 columna en móvil */
+    .card [style*="grid-template-columns:1fr 1fr"],
+    .card [style*="grid-template-columns: 1fr 1fr"]{
+      grid-template-columns: 1fr !important;
+    }
+    .card [style*="grid-template-columns:1fr 1fr 1fr"],
+    .card [style*="grid-template-columns: 1fr 1fr 1fr"]{
+      grid-template-columns: 1fr 1fr !important;
+    }
     
     /* Items table - card layout on mobile */
     .items-header{display:none;}
@@ -259,6 +270,13 @@ document.dispatchEvent(new Event("fb-ready"));
     .stats-grid{grid-template-columns:1fr 1fr;}
     #main{padding:12px 12px;padding-bottom:calc(80px + env(safe-area-inset-bottom));}
   }
+  @media print {
+    @page { margin: 0; size: A4; }
+    body > *:not(#print-frame) { display: none !important; }
+  }
+</style>
+<style>
+  @page { margin-top: 1cm; margin-bottom: 1cm; margin-left: 1cm; margin-right: 1cm; }
 </style>
 </head>
 <body>
@@ -298,15 +316,17 @@ document.dispatchEvent(new Event("fb-ready"));
 <div id="main">
   <!-- LIST VIEW -->
   <div id="view-list" class="animate-in">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">
-      <div>
-        <h1 style="font-family:'Playfair Display',serif;font-size:32px;font-weight:800;color:#1a1a2e;letter-spacing:-1px;">Cotizaciones</h1>
-        <p style="color:#888;font-size:14px;margin-top:4px;" id="total-label">0 presupuestos en total</p>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div>
+          <h1 style="font-family:'Playfair Display',serif;font-size:28px;font-weight:800;color:#1a1a2e;letter-spacing:-1px;">Cotizaciones</h1>
+          <p style="color:#888;font-size:13px;margin-top:2px;" id="total-label">0 presupuestos en total</p>
+        </div>
+        <button class="btn-primary" onclick="goView('form')" style="white-space:nowrap;">+ Nueva</button>
       </div>
-      <div style="display:flex;gap:10px;">
-        <button onclick="refreshData()" style="background:#fff;color:#1a1a2e;padding:11px 16px;border-radius:10px;font-weight:600;font-size:13px;border:1.5px solid #e0dbd2;display:flex;align-items:center;gap:6px;">🔄 <span id="last-refresh-label">Actualizar</span></button>
-        <button onclick="exportExcel()" style="background:#fff;color:#1a1a2e;padding:11px 20px;border-radius:10px;font-weight:600;font-size:14px;border:1.5px solid #e0dbd2;display:flex;align-items:center;gap:8px;">📊 Exportar Excel</button>
-        <button class="btn-primary" onclick="goView('form')">+ Nueva cotización</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="refreshData()" style="background:#fff;color:#1a1a2e;padding:9px 14px;border-radius:10px;font-weight:600;font-size:13px;border:1.5px solid #e0dbd2;display:flex;align-items:center;gap:6px;flex:1;justify-content:center;">🔄 <span id="last-refresh-label">Actualizar</span></button>
+        <button onclick="exportExcel()" style="background:#fff;color:#1a1a2e;padding:9px 14px;border-radius:10px;font-weight:600;font-size:13px;border:1.5px solid #e0dbd2;display:flex;align-items:center;gap:6px;flex:1;justify-content:center;">📊 Excel</button>
       </div>
     </div>
 
@@ -328,13 +348,17 @@ document.dispatchEvent(new Event("fb-ready"));
       </div>
     </div>
 
-    <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
-      <button class="filter-btn active" onclick="setFilter('todas',this)">Todas</button>
-      <button class="filter-btn" onclick="setFilter('pendiente',this)">Pendiente</button>
-      <button class="filter-btn" onclick="setFilter('aceptada',this)">Aceptada</button>
-      <button class="filter-btn" onclick="setFilter('rechazada',this)">Rechazada</button>
-      <input class="inp" id="search-input" placeholder="Buscar cliente o número..." style="width:180px;border-radius:20px;" oninput="renderList()"/>
-      <button onclick="toggleSelectMode()" id="btn-select" style="padding:7px 14px;border-radius:20px;background:#fff;border:1.5px solid #e0dbd2;font-size:13px;font-weight:600;color:#666;">☑️ Seleccionar</button>
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+        <button class="filter-btn active" onclick="setFilter('todas',this)">Todas</button>
+        <button class="filter-btn" onclick="setFilter('pendiente',this)">Pendiente</button>
+        <button class="filter-btn" onclick="setFilter('aceptada',this)">Aceptada</button>
+        <button class="filter-btn" onclick="setFilter('rechazada',this)">Rechazada</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input class="inp" id="search-input" placeholder="Buscar cliente o número..." style="border-radius:20px;flex:1;" oninput="renderList()"/>
+        <button onclick="toggleSelectMode()" id="btn-select" style="padding:9px 14px;border-radius:20px;background:#fff;border:1.5px solid #e0dbd2;font-size:13px;font-weight:600;color:#666;white-space:nowrap;">☑️ Selec.</button>
+      </div>
     </div>
 
     <!-- Barra de acciones cuando hay seleccionadas -->
@@ -436,7 +460,7 @@ document.dispatchEvent(new Event("fb-ready"));
           <div style="font-size:11px;color:#1a7a40;text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px;">📈 Tu margen</div>
           <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;">
             <div style="text-align:center;">
-              <div style="color:#888;font-size:11px;margin-bottom:3px;">Costo proveedor</div>
+              <div style="color:#888;font-size:11px;margin-bottom:3px;">Costo Prov.</div>
               <div style="font-weight:700;color:#e63946;font-size:15px;" id="form-m-costo">S/ 0.00</div>
             </div>
             <div style="text-align:center;">
@@ -627,6 +651,7 @@ function renderList() {
       <div style="font-family:'Playfair Display',serif;font-weight:700;color:#e63946;font-size:18px;min-width:70px;">#${String(q.number).padStart(4,'0')}</div>
       <div style="flex:1;">
         <div style="font-weight:700;color:#1a1a2e;font-size:15px;">${esc(q.clientName)}</div>
+        ${q.clientCompany?`<div style="color:#555;font-size:12px;font-weight:600;margin-top:1px;">${esc(q.clientCompany)}</div>`:''}
         <div style="color:#888;font-size:12px;margin-top:2px;">${q.date}</div>
       </div>
       ${q.imgData?`<img src="${q.imgData}" class="img-thumb" alt="img"/>`:``}
@@ -700,11 +725,11 @@ function addItemRow(item) {
           <input class="inp" type="number" min="1" value="${qty}" oninput="updateTotal()" style="text-align:center;"/>
         </div>
         <div>
-          <span class="item-field-label">Costo prov.</span>
+          <span class="item-field-label">Costo Prov.</span>
           <input class="inp" type="number" min="0" step="0.01" value="${cost}" oninput="updateTotal()" placeholder="0.00" style="background:#fff8f8;border-color:#f5c6c6;"/>
         </div>
         <div>
-          <span class="item-field-label">Precio venta</span>
+          <span class="item-field-label">Precio Venta</span>
           <input class="inp" type="number" min="0" step="0.01" value="${price}" oninput="updateTotal()" placeholder="0.00"/>
         </div>
       </div>
@@ -996,14 +1021,17 @@ async function deleteQuote(id) {
   goView('list');
 }
 
-async function updateStatus(id, status) {
+function updateStatus(id, status) {
   const q = appData.quotes.find(x=>x.id===id);
   if(!q) return;
   q.status = status;
-  await saveQuote(q);
+  // Actualizar UI al instante
   renderDetail(q);
   updateSidebar();
-  showToast('Estado actualizado: '+status);
+  const labels = {pendiente:'⏳ Pendiente', aceptada:'✅ Aceptada', rechazada:'❌ Rechazada'};
+  showToast(labels[status] || status);
+  // Guardar en nube en segundo plano sin bloquear
+  saveQuote(q);
 }
 
 // ═══════════════════════════════════════════
@@ -1064,6 +1092,7 @@ function printQuote(id) {
   const q = appData.quotes.find(x=>x.id===id);
   if(!q) return;
 
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const logoSrc = document.querySelector('#sidebar img') ? document.querySelector('#sidebar img').src : '';
   const payText = q.payMethod==='credito' ? `Crédito a ${q.creditDays||30} días` : 'Contado';
 
@@ -1085,6 +1114,11 @@ function printQuote(id) {
 <meta charset="UTF-8"/>
 <title>Cotización #${String(q.number).padStart(4,'0')}</title>
 <style>
+  @page{margin:1cm;size:A4;}
+  @media print{
+    @page{margin:1cm;}
+    head,header,footer{display:none!important;}
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:Arial,sans-serif;color:#1a1a2e;background:#fff;padding:22px 32px;}
   .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
@@ -1098,6 +1132,13 @@ function printQuote(id) {
   .grid2{display:flex;gap:14px;margin-bottom:14px;}
   .grid2>div{flex:1;}
   @media print{@page{margin:1cm} body{padding:0}}
+  @media print {
+    @page { margin: 0; size: A4; }
+    body > *:not(#print-frame) { display: none !important; }
+  }
+</style>
+<style>
+  @page { margin-top: 1cm; margin-bottom: 1cm; margin-left: 1cm; margin-right: 1cm; }
 </style>
 </head>
 <body>
@@ -1157,7 +1198,19 @@ ${q.notes?`<div style="margin-top:10px;padding:12px 14px;background:#f9f9f9;bord
 <div class="footer">Gracias por su confianza · ${esc(q.businessName||'Mi Empresa')}</div>
 <script>window.onload = () => window.print();<\/script>
 </body></html>`);
-  win.document.close();
+  `;
+
+  if (isMobile) {
+    // En iPhone: abrir como blob para evitar URL en el pie de página
+    const blob = new Blob([docContent], {type: 'text/html'});
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } else {
+    const win = window.open('','_blank','width=900,height=700');
+    win.document.write(docContent);
+    win.document.close();
+  }
 }
 
 
