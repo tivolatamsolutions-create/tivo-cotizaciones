@@ -272,9 +272,10 @@ document.dispatchEvent(new Event("fb-ready"));
   }
   @media print {
     @page { margin: 1cm; size: A4; }
-    body > *:not(#print-overlay) { display: none !important; }
-    #print-overlay { position:static !important; overflow:visible !important; padding:0 !important; }
+    #main-app, #login-overlay, #fab-nueva { display: none !important; }
+    #print-overlay { display: block !important; position:static !important; overflow:visible !important; padding:0 !important; background:#fff !important; }
     #print-close-btn { display: none !important; }
+    #print-content { display: block !important; }
   }
 </style>
 <style>
