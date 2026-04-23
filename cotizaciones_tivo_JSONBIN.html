@@ -1196,28 +1196,15 @@ ${q.notes?`<div style="margin-top:10px;padding:12px 14px;background:#f9f9f9;bord
 <div class="footer">Gracias por su confianza · ${esc(q.businessName||'Mi Empresa')}</div>
 </body></html>`;
 
-  // Crear iframe oculto para imprimir (funciona en iPhone)
-  let pf = document.getElementById('print-frame');
-  if (pf) pf.remove();
-  pf = document.createElement('iframe');
-  pf.id = 'print-frame';
-  pf.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:99999;background:#fff;';
-  document.body.appendChild(pf);
-  pf.contentDocument.open();
-  pf.contentDocument.write(printHTML);
-  pf.contentDocument.close();
-  
-  // Boton cerrar
-  const closeBtn = document.createElement('button');
-  closeBtn.innerHTML = '✕ Cerrar';
-  closeBtn.style.cssText = 'position:fixed;top:16px;right:16px;z-index:100000;background:#e63946;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;';
-  closeBtn.onclick = () => { pf.remove(); closeBtn.remove(); };
-  document.body.appendChild(closeBtn);
-  
-  setTimeout(() => {
-    pf.contentWindow.focus();
-    pf.contentWindow.print();
-  }, 500);
+  // Abrir ventana de impresión
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) { alert('Por favor permite las ventanas emergentes'); return; }
+  win.document.open();
+  win.document.write(printHTML);
+  win.document.close();
+  win.onload = function() { win.focus(); win.print(); };
+  // Fallback si onload no dispara
+  setTimeout(() => { try { win.focus(); win.print(); } catch(e){} }, 1200);
 }
 
 
