@@ -1594,8 +1594,10 @@ function updateFAB() {
 }
 window.addEventListener('resize', updateFAB);
 // Hook into goView
-const _origGoView = goView;
-goView = function(v) { _origGoView(v); setTimeout(updateFAB, 50); };
+if (typeof goView !== 'undefined') {
+  const _origGoView = goView;
+  goView = function(v) { _origGoView(v); setTimeout(updateFAB, 50); };
+}
 setTimeout(updateFAB, 500);
 </script>
 
