@@ -1161,7 +1161,7 @@ function printQuote(id) {
       style="position:fixed;top:16px;right:16px;z-index:100001;background:#e63946;color:#fff;
       border:none;padding:12px 20px;border-radius:10px;font-size:15px;font-weight:700;
       cursor:pointer;font-family:Arial,sans-serif;box-shadow:0 4px 12px rgba(230,57,70,.4);">✕ Cerrar</div>
-    <div id="print-content" style="font-family:Arial,sans-serif;color:#1a1a2e;background:#fff;padding:40px 48px;max-width:794px;width:794px;margin:0 auto;box-shadow:0 4px 32px rgba(0,0,0,.15);min-height:1000px;">
+    <div id="print-content" style="font-family:Arial,sans-serif;color:#1a1a2e;background:#fff;padding:40px 48px;width:794px;min-width:794px;align-self:flex-start;box-shadow:0 4px 32px rgba(0,0,0,.18);min-height:1000px;">
       
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
         <img src="${logoSrc}" style="height:50px;width:auto;object-fit:contain;display:block;"/>
@@ -1230,7 +1230,7 @@ function printQuote(id) {
       </div>
     </div>`;
   
-  overlay.style.cssText = 'position:fixed;inset:0;background:#e0e0e0;z-index:100000;overflow-y:auto;padding:40px 20px;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#c8c8c8;z-index:100000;overflow-y:auto;display:flex;justify-content:center;padding:40px 20px;';
   document.body.appendChild(overlay);
   
   // Imprimir después de que el DOM esté listo
@@ -1569,22 +1569,26 @@ function checkPin() {
 }
 
 async function loadAfterPin() {
+  // Entrar inmediatamente a la app
+  currentUser = 'tivo';
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('main-app').style.display = 'flex';
+  updateSidebar();
+  renderList();
+  // Cargar datos en segundo plano
   try {
-    currentUser = 'tivo';
     const meta = await window.fbLoadMeta('tivo');
     if (meta) {
       appData.nextId = meta.nextId || 1;
       appData.businessInfo = meta.bizInfo || appData.businessInfo;
     }
     appData.quotes = await window.fbLoadAll('tivo');
-    document.getElementById('login-overlay').style.display = 'none';
-    document.getElementById('main-app').style.display = 'flex';
+    _lastRefresh = Date.now();
     updateSidebar();
     renderList();
-    _lastRefresh = Date.now();
     startAutoRefresh();
   } catch(e) {
-    document.getElementById('loading-screen').innerHTML = '<div style="color:#e63946;font-size:14px;">Error de conexion. Recarga la pagina 🔄</div>';
+    showToast('Error cargando datos. Toca Actualizar 🔄', 'error');
   }
 }
 
