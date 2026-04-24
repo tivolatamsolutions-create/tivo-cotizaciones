@@ -58,26 +58,30 @@ window.fbLoadAll = async (user) => {
   window._userData = data;
   return (data.quotes || []).sort((a,b) => b.number - a.number);
 };
+
+// Guarda TODO en una sola llamada a JSONBin (más rápido)
+window.fbSaveAll = async () => {
+  if (!window._userData) return;
+  await jbSaveUserData(null, window._userData);
+};
+
 window.fbSave = async (user, id, quote) => {
-  const data = window._userData || await jbLoadUserData(user);
-  const idx = data.quotes.findIndex(q => String(q.id) === String(id));
-  if (idx >= 0) data.quotes[idx] = quote;
-  else data.quotes.push(quote);
-  window._userData = data;
-  await jbSaveUserData(user, data);
+  if (!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
+  const idx = window._userData.quotes.findIndex(q => String(q.id) === String(id));
+  if (idx >= 0) window._userData.quotes[idx] = quote;
+  else window._userData.quotes.push(quote);
+  await jbSaveUserData(null, window._userData);
 };
 window.fbDelete = async (user, id) => {
-  const data = window._userData || await jbLoadUserData(user);
-  data.quotes = data.quotes.filter(q => String(q.id) !== String(id));
-  window._userData = data;
-  await jbSaveUserData(user, data);
+  if (!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
+  window._userData.quotes = window._userData.quotes.filter(q => String(q.id) !== String(id));
+  await jbSaveUserData(null, window._userData);
 };
 window.fbSaveMeta = async (user, meta) => {
-  const data = window._userData || await jbLoadUserData(user);
-  data.nextId = meta.nextId;
-  data.bizInfo = meta.bizInfo;
-  window._userData = data;
-  await jbSaveUserData(user, data);
+  if (!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
+  window._userData.nextId = meta.nextId;
+  window._userData.bizInfo = meta.bizInfo;
+  // No hacer llamada extra — se guarda junto con fbSave
 };
 window.fbLoadMeta = async (user) => {
   const data = window._userData || await jbLoadUserData(user);
@@ -921,31 +925,32 @@ async function submitForm() {
     businessAddress: bi.address
   };
 
-  // Deshabilitar el botón mientras se guarda
   const submitBtn = document.querySelector('button[onclick="submitForm()"]');
-  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Guardando en nube ☁️…'; }
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Guardando ☁️…'; }
 
   try {
     if(editId) {
       const idx = appData.quotes.findIndex(q=>q.id==editId);
-      if(idx>=0) {
-        appData.quotes[idx] = {...appData.quotes[idx], ...quote};
-        await saveQuote(appData.quotes[idx]);
-      }
+      if(idx>=0) appData.quotes[idx] = {...appData.quotes[idx], ...quote};
     } else {
       quote.id = appData.nextId;
       quote.number = appData.nextId;
       quote.createdAt = Date.now();
       appData.quotes.unshift(quote);
       appData.nextId++;
-      await saveQuote(quote);
-      await saveData();
     }
-    showToast('Coti guardada en la nube ✅');
+    // Sincronizar _userData y guardar TODO en una sola llamada
+    if(!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
+    window._userData.quotes = appData.quotes;
+    window._userData.nextId = appData.nextId;
+    window._userData.bizInfo = appData.businessInfo;
+    await window.fbSaveAll();
+
+    showToast('Cotización guardada ✅');
     editingId = null;
     goView('list');
   } catch(e) {
-    showToast('Error al guardar en la nube ⚠️ Intenta de nuevo', 'error');
+    showToast('Error al guardar ⚠️ Intenta de nuevo', 'error');
     if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Guardar cotización'; }
   }
 }
