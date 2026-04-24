@@ -11,66 +11,81 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <script>
 // ══════════════════════════════════════════════
-// SUPABASE — Base de datos en tiempo real
+// JSONBIN.IO — Base de datos compartida TiVo
 // ══════════════════════════════════════════════
-const SB_URL = "https://jtmqibxfkkkcfthdvzqv.supabase.co";
-const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0bXFpYnhma2trY2Z0aGR2enF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MTEzODUsImV4cCI6MjA5MjQ4NzM4NX0.1dxWplL3grNtXwmG1PFimvCoDNV7Bq6f-99UlXGNr98";
+const JSONBIN_KEY = "$2a$10$UwwjgpE7T0UY8gP7D.fYW.Ne7EiqLktq07bocLdfMcdlcskXfV/mS";
+const JSONBIN_API = "https://api.jsonbin.io/v3";
+const SHARED_BIN_NAME = "tivo_shared";
 
-const sbHeaders = {
-  "apikey": SB_KEY,
-  "Authorization": "Bearer " + SB_KEY,
-  "Content-Type": "application/json",
-  "Prefer": "return=minimal"
-};
+// BIN ID compartido fijo — ambas usuarias usan el mismo
+let _sharedBinId = "69e97d4caaba8821972a1c08";
 
-async function sbFetch(path, options = {}) {
-  const res = await fetch(SB_URL + path, {
+async function jbFetch(url, options = {}) {
+  const res = await fetch(url, {
     ...options,
-    headers: { ...sbHeaders, ...(options.headers || {}) }
+    headers: {
+      "Content-Type": "application/json",
+      "X-Master-Key": JSONBIN_KEY,
+      "X-Bin-Private": "false",
+      ...(options.headers || {})
+    }
   });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error("Supabase error: " + res.status + " " + err);
-  }
-  const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error("JSONBin error: " + res.status);
+  return res.json();
 }
 
-// Cargar todas las cotizaciones
+async function getSharedBinId() {
+  return _sharedBinId; // ID fijo compartido
+}
+
+async function jbLoadUserData(user) {
+  const binId = await getSharedBinId();
+  const data = await jbFetch(`${JSONBIN_API}/b/${binId}/latest`);
+  return data.record;
+}
+
+async function jbSaveUserData(user, data) {
+  const binId = await getSharedBinId();
+  await jbFetch(`${JSONBIN_API}/b/${binId}`, {
+    method: "PUT",
+    body: JSON.stringify(data)
+  });
+}
+
+// Exponer funciones compatibles con el código existente
 window.fbLoadAll = async (user) => {
-  const rows = await sbFetch("/rest/v1/cotizaciones?select=id,data&order=id.desc");
-  return (rows || []).map(r => r.data);
+  const data = await jbLoadUserData(user);
+  window._userData = data;
+  return (data.quotes || []).sort((a,b) => b.number - a.number);
 };
-
-// Guardar/actualizar una cotización
 window.fbSave = async (user, id, quote) => {
-  await sbFetch("/rest/v1/cotizaciones", {
-    method: "POST",
-    headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify({ id: id, data: quote })
-  });
+  const data = window._userData || await jbLoadUserData(user);
+  const idx = data.quotes.findIndex(q => String(q.id) === String(id));
+  if (idx >= 0) data.quotes[idx] = quote;
+  else data.quotes.push(quote);
+  window._userData = data;
+  await jbSaveUserData(user, data);
 };
-
-// Eliminar cotización
 window.fbDelete = async (user, id) => {
-  await sbFetch("/rest/v1/cotizaciones?id=eq." + id, { method: "DELETE" });
+  const data = window._userData || await jbLoadUserData(user);
+  data.quotes = data.quotes.filter(q => String(q.id) !== String(id));
+  window._userData = data;
+  await jbSaveUserData(user, data);
 };
-
-// Guardar config (nextId, bizInfo)
 window.fbSaveMeta = async (user, meta) => {
-  await sbFetch("/rest/v1/config", {
-    method: "POST",
-    headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify({ key: "meta", value: meta })
-  });
+  const data = window._userData || await jbLoadUserData(user);
+  data.nextId = meta.nextId;
+  data.bizInfo = meta.bizInfo;
+  window._userData = data;
+  await jbSaveUserData(user, data);
+};
+window.fbLoadMeta = async (user) => {
+  const data = window._userData || await jbLoadUserData(user);
+  window._userData = data;
+  if (!data.nextId && !data.bizInfo) return null;
+  return { nextId: data.nextId || 1, bizInfo: data.bizInfo || {} };
 };
 
-// Cargar config
-window.fbLoadMeta = async (user) => {
-  const rows = await sbFetch("/rest/v1/config?key=eq.meta&select=value");
-  if (rows && rows.length > 0) return rows[0].value;
-  return null;
-};
 window._fbReady = true;
 document.dispatchEvent(new Event("fb-ready"));
 </script>
@@ -894,7 +909,6 @@ async function submitForm() {
     clientCompany: document.getElementById('f-clientCompany').value.trim(),
     clientPhone: document.getElementById('f-clientPhone').value.trim(),
     date: document.getElementById('f-date').value,
-
     status: document.getElementById('f-status').value,
     notes: document.getElementById('f-notes').value.trim(),
     clientRuc: document.getElementById('f-ruc').value.trim(),
@@ -906,22 +920,34 @@ async function submitForm() {
     businessPhone: bi.phone,
     businessAddress: bi.address
   };
-  if(editId) {
-    const idx = appData.quotes.findIndex(q=>q.id==editId);
-    if(idx>=0) { appData.quotes[idx] = {...appData.quotes[idx], ...quote}; saveQuote(appData.quotes[idx]); }
-    showToast('Coti - TiVo Guardada ✅'); // mostrar inmediato
-  } else {
-    quote.id = appData.nextId;
-    quote.number = appData.nextId;
-    quote.createdAt = Date.now();
-    appData.quotes.unshift(quote);
-    appData.nextId++;
-    showToast('Coti - TiVo Guardada ✅'); // mostrar inmediato
-    saveQuote(quote);  // guardar en nube sin await (no bloquea)
-    saveData();
+
+  // Deshabilitar el botón mientras se guarda
+  const submitBtn = document.querySelector('button[onclick="submitForm()"]');
+  if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Guardando en nube ☁️…'; }
+
+  try {
+    if(editId) {
+      const idx = appData.quotes.findIndex(q=>q.id==editId);
+      if(idx>=0) {
+        appData.quotes[idx] = {...appData.quotes[idx], ...quote};
+        await saveQuote(appData.quotes[idx]);
+      }
+    } else {
+      quote.id = appData.nextId;
+      quote.number = appData.nextId;
+      quote.createdAt = Date.now();
+      appData.quotes.unshift(quote);
+      appData.nextId++;
+      await saveQuote(quote);
+      await saveData();
+    }
+    showToast('Coti guardada en la nube ✅');
+    editingId = null;
+    goView('list');
+  } catch(e) {
+    showToast('Error al guardar en la nube ⚠️ Intenta de nuevo', 'error');
+    if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Guardar cotización'; }
   }
-  editingId = null;
-  goView('list');
 }
 
 function cancelForm() {
@@ -1050,17 +1076,20 @@ async function deleteQuote(id) {
   goView('list');
 }
 
-function updateStatus(id, status) {
+async function updateStatus(id, status) {
   const q = appData.quotes.find(x=>x.id===id);
   if(!q) return;
   q.status = status;
-  // Actualizar UI al instante
   renderDetail(q);
   updateSidebar();
   const labels = {pendiente:'⏳ Pendiente', aceptada:'✅ Aceptada', rechazada:'❌ Rechazada'};
-  showToast(labels[status] || status);
-  // Guardar en nube en segundo plano sin bloquear
-  saveQuote(q);
+  showToast('Guardando… ☁️');
+  try {
+    await saveQuote(q);
+    showToast((labels[status] || status) + ' — guardado ✅');
+  } catch(e) {
+    showToast('Error al guardar estado ⚠️', 'error');
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1463,7 +1492,7 @@ async function doLogin() {
   btn.disabled = true;
   try {
     currentUser = u;
-    // Cargar datos desde Supabase
+    // Cargar datos desde JSONBin
     const meta = await window.fbLoadMeta(u);
     if (meta) {
       appData.nextId = meta.nextId || 1;
@@ -1487,7 +1516,7 @@ function doLogout() {
   location.reload();
 }
 
-// Wrap saveData and saveQuote/deleteQuote to also sync to Supabase
+// Wrap saveData and saveQuote/deleteQuote to also sync to JSONBin
 const _origSaveData = saveData;
 saveData = async function() {
   _origSaveData();
