@@ -11,83 +11,67 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <script>
 // ══════════════════════════════════════════════
-// JSONBIN.IO — Base de datos compartida TiVo
+// SUPABASE — Base de datos compartida TiVo
 // ══════════════════════════════════════════════
-const JSONBIN_KEY = "$2a$10$UwwjgpE7T0UY8gP7D.fYW.Ne7EiqLktq07bocLdfMcdlcskXfV/mS";
-const JSONBIN_API = "https://api.jsonbin.io/v3";
-const SHARED_BIN_NAME = "tivo_shared";
+const SB_URL  = "https://jtmqibxfkkkcfthdvzqv.supabase.co";
+const SB_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0bXFpYnhma2trY2Z0aGR2enF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MTEzODUsImV4cCI6MjA5MjQ4NzM4NX0.1dxWplL3grNtXwmG1PFimvCoDNV7Bq6f-99UlXGNr98";
+const SB_HEADERS = { "Content-Type": "application/json", "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY };
 
-// BIN ID compartido fijo — ambas usuarias usan el mismo
-let _sharedBinId = "69e97d4caaba8821972a1c08";
-
-async function jbFetch(url, options = {}) {
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-Master-Key": JSONBIN_KEY,
-      "X-Bin-Private": "false",
-      ...(options.headers || {})
-    }
-  });
-  if (!res.ok) throw new Error("JSONBin error: " + res.status);
+async function sbFetch(path, options = {}) {
+  const res = await fetch(SB_URL + path, { ...options, headers: { ...SB_HEADERS, ...(options.headers||{}) } });
+  if (!res.ok) { const err = await res.text(); throw new Error("Supabase error: " + res.status + " " + err); }
+  if (res.status === 204) return null;
   return res.json();
 }
 
-async function getSharedBinId() {
-  return _sharedBinId; // ID fijo compartido
-}
-
-async function jbLoadUserData(user) {
-  const binId = await getSharedBinId();
-  const data = await jbFetch(`${JSONBIN_API}/b/${binId}/latest`);
-  return data.record;
-}
-
-async function jbSaveUserData(user, data) {
-  const binId = await getSharedBinId();
-  await jbFetch(`${JSONBIN_API}/b/${binId}`, {
-    method: "PUT",
-    body: JSON.stringify(data)
-  });
-}
-
-// Exponer funciones compatibles con el código existente
+// ── COTIZACIONES ──
+// Tabla: id BIGSERIAL PK, data JSONB, created_at TIMESTAMPTZ
 window.fbLoadAll = async (user) => {
-  const data = await jbLoadUserData(user);
-  window._userData = data;
-  return (data.quotes || []).sort((a,b) => b.number - a.number);
-};
-
-// Guarda TODO en una sola llamada a JSONBin (más rápido)
-window.fbSaveAll = async () => {
-  if (!window._userData) return;
-  await jbSaveUserData(null, window._userData);
+  const rows = await sbFetch("/rest/v1/cotizaciones?select=id,data&order=id.desc");
+  return (rows || []).map(r => ({ ...r.data, _rowId: r.id }));
 };
 
 window.fbSave = async (user, id, quote) => {
-  if (!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
-  const idx = window._userData.quotes.findIndex(q => String(q.id) === String(id));
-  if (idx >= 0) window._userData.quotes[idx] = quote;
-  else window._userData.quotes.push(quote);
-  await jbSaveUserData(null, window._userData);
+  if (quote._rowId) {
+    // UPDATE fila existente
+    await sbFetch("/rest/v1/cotizaciones?id=eq." + quote._rowId, {
+      method: "PATCH",
+      body: JSON.stringify({ data: quote })
+    });
+  } else {
+    // INSERT nueva fila
+    const res = await sbFetch("/rest/v1/cotizaciones?select=id", {
+      method: "POST",
+      headers: { "Prefer": "return=representation" },
+      body: JSON.stringify({ data: quote })
+    });
+    if (res && res[0]) quote._rowId = res[0].id;
+  }
 };
+
+window.fbSaveAll = async () => {};
+
 window.fbDelete = async (user, id) => {
-  if (!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
-  window._userData.quotes = window._userData.quotes.filter(q => String(q.id) !== String(id));
-  await jbSaveUserData(null, window._userData);
+  // id aquí es el quote.id (número), buscamos por _rowId guardado en appData
+  const q = (window._appQuotes || []).find(q => String(q.id) === String(id));
+  if (q && q._rowId) {
+    await sbFetch("/rest/v1/cotizaciones?id=eq." + q._rowId, { method: "DELETE" });
+  }
 };
+
+// ── CONFIG (nextId + bizInfo) ──
 window.fbSaveMeta = async (user, meta) => {
-  if (!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
-  window._userData.nextId = meta.nextId;
-  window._userData.bizInfo = meta.bizInfo;
-  // No hacer llamada extra — se guarda junto con fbSave
+  await sbFetch("/rest/v1/config?on_conflict=key", {
+    method: "POST",
+    headers: { "Prefer": "resolution=merge-duplicates" },
+    body: JSON.stringify({ key: "meta", value: meta })
+  });
 };
+
 window.fbLoadMeta = async (user) => {
-  const data = window._userData || await jbLoadUserData(user);
-  window._userData = data;
-  if (!data.nextId && !data.bizInfo) return null;
-  return { nextId: data.nextId || 1, bizInfo: data.bizInfo || {} };
+  const rows = await sbFetch("/rest/v1/config?key=eq.meta&select=value");
+  if (!rows || rows.length === 0) return null;
+  return rows[0].value;
 };
 
 window._fbReady = true;
@@ -929,28 +913,29 @@ async function submitForm() {
   if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Guardando ☁️…'; }
 
   try {
+    // Guardar en Supabase
     if(editId) {
       const idx = appData.quotes.findIndex(q=>q.id==editId);
-      if(idx>=0) appData.quotes[idx] = {...appData.quotes[idx], ...quote};
+      if(idx>=0) {
+        appData.quotes[idx] = {...appData.quotes[idx], ...quote};
+        await window.fbSave(currentUser, editId, appData.quotes[idx]);
+      }
     } else {
       quote.id = appData.nextId;
       quote.number = appData.nextId;
       quote.createdAt = Date.now();
       appData.quotes.unshift(quote);
       appData.nextId++;
+      await window.fbSave(currentUser, quote.id, quote);
+      await window.fbSaveMeta(currentUser, { nextId: appData.nextId, bizInfo: appData.businessInfo });
     }
-    // Sincronizar _userData y guardar TODO en una sola llamada
-    if(!window._userData) window._userData = { quotes: [], nextId: 1, bizInfo: {} };
-    window._userData.quotes = appData.quotes;
-    window._userData.nextId = appData.nextId;
-    window._userData.bizInfo = appData.businessInfo;
-    await window.fbSaveAll();
 
     showToast('Cotización guardada ✅');
     editingId = null;
     goView('list');
   } catch(e) {
-    showToast('Error al guardar ⚠️ Intenta de nuevo', 'error');
+    console.error('Error al guardar:', e);
+    showToast('Error: ' + e.message, 'error');
     if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Guardar cotización'; }
   }
 }
@@ -1602,6 +1587,11 @@ async function loadAfterPin() {
       appData.businessInfo = meta.bizInfo || appData.businessInfo;
     }
     appData.quotes = await window.fbLoadAll('tivo');
+    window._appQuotes = appData.quotes; // referencia para fbDelete
+    // Inicializar config si no existe
+    if (!meta) {
+      try { await window.fbSaveMeta('tivo', { nextId: 1, bizInfo: appData.businessInfo }); } catch(e) {}
+    }
     _lastRefresh = Date.now();
     updateSidebar();
     renderList();
