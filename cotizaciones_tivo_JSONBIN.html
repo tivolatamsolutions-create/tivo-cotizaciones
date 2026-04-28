@@ -65,11 +65,12 @@ window.fbDelete = async (user, id) => {
 
 // ── CONFIG (nextId + bizInfo) ──
 window.fbSaveMeta = async (user, meta) => {
-  await sbFetch("/rest/v1/config?on_conflict=key", {
+  const res = await fetch(SB_URL + "/rest/v1/config?on_conflict=key", {
     method: "POST",
-    headers: { "Prefer": "resolution=merge-duplicates" },
+    headers: { ...SB_HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify({ key: "meta", value: meta })
   });
+  if (!res.ok) { const err = await res.text(); throw new Error("Supabase error: " + res.status + " " + err); }
 };
 
 window.fbLoadMeta = async (user) => {
