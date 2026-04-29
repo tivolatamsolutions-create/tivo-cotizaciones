@@ -941,6 +941,7 @@ async function submitForm() {
   } catch(e) {
     console.error('Error al guardar:', e);
     showToast('Error: ' + e.message, 'error');
+  } finally {
     if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Guardar cotización'; }
   }
 }
